@@ -33,7 +33,10 @@
            (sql->korma "select a,b,c from foo"))))
   (testing "column alias"
     (is (= '(select :foo (fields [:bar :b]))
-           (sql->korma "select bar as b from foo")))))
+           (sql->korma "select bar as b from foo"))))
+  (testing "table alias"
+    (is (= '(select [:foo :f] (fields :f.a))
+           (sql->korma "select f.a from foo as f")))))
 
 (defspec generated-dsl-generates-same-sql 1000
   (prop/for-all [sql gen/sql]

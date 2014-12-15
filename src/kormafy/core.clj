@@ -9,7 +9,8 @@
                                column       = column-name [alias]
                                <column-name>  = [identifier <'.'>] (identifier | '*')
                                alias        = <whitespace> <'as'> <whitespace> identifier
-                               from         = <'from'> <whitespace> identifier
+                               from         = <'from'> <whitespace> table
+                               table        = identifier [alias]
                                <identifier> = #'[A-Za-z][A-Za-z0-9]*'"
                               :string-ci true))
 
@@ -22,7 +23,7 @@
   {:fields (map transform-sql-node columns)})
 
 (defmethod transform-sql-node :from [[_ table]]
-  {:from (keyword table)})
+  {:from (transform-sql-node table)})
 
 (defn- parse-alias [v]
   (when (vector? v)
@@ -30,12 +31,18 @@
       (when (= :alias tag)
         value))))
 
-(defmethod transform-sql-node :column [[_ & parts]]
+(defn- aliasable [parts]
   (let [alias (keyword (parse-alias (last parts)))
         field (keyword (clojure.string/join "." (if alias (butlast parts) parts)))]
     (if alias
       [field alias]
       field)))
+
+(defmethod transform-sql-node :table [[_ & parts]]
+  (aliasable parts))
+
+(defmethod transform-sql-node :column [[_ & parts]]
+  (aliasable parts))
 
 (defn sql->korma [sql-string]
   (let [parsed (sql-parser sql-string)]
