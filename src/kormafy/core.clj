@@ -4,7 +4,8 @@
 
 (def sql-parser (insta/parser "<sql>        = select <whitespace> from
                                whitespace   = #'\\s+'
-                               select       = <'select'> <whitespace> columns
+                               select       = <'select'> <whitespace> [modifier <whitespace>] columns
+                               modifier     = #'(?i)distinct'
                                <columns>    = column (<whitespace>? <','> <whitespace>? column)*
                                column       = column-name [alias]
                                <column-name>  = [identifier <'.'>] (identifier | '*')
@@ -14,25 +15,29 @@
                                <identifier> = #'[A-Za-z][A-Za-z0-9]*'"
                               :string-ci true))
 
-(defn- sql-map->korma [{:keys [from fields]}]
-  (list 'select from (list* 'fields fields)))
+(defn- sql-map->korma [{:keys [from fields modifier]}]
+  (list* 'select from (filter identity [(list* 'fields fields)
+                                        (when modifier (list 'modifier modifier))])))
+
+(defn- parse-tag [tag v]
+  (when (vector? v)
+    (let [[tag' value] v]
+      (when (= tag tag')
+        value))))
 
 (defmulti ^:private transform-sql-node first)
 
 (defmethod transform-sql-node :select [[_ & columns]]
-  {:fields (map transform-sql-node columns)})
+  (let [modifier (parse-tag :modifier (first columns))
+        columns (if modifier (rest columns) columns)]
+    {:modifier modifier
+     :fields   (map transform-sql-node columns)}))
 
 (defmethod transform-sql-node :from [[_ table]]
   {:from (transform-sql-node table)})
 
-(defn- parse-alias [v]
-  (when (vector? v)
-    (let [[tag value] v]
-      (when (= :alias tag)
-        value))))
-
 (defn- aliasable [parts]
-  (let [alias (keyword (parse-alias (last parts)))
+  (let [alias (keyword (parse-tag :alias (last parts)))
         field (keyword (clojure.string/join "." (if alias (butlast parts) parts)))]
     (if alias
       [field alias]

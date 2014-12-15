@@ -10,18 +10,22 @@
 
 (def columns (gen/frequency [[9 (gen/not-empty (gen/vector aliasable))] [1 (gen/return [{:name "*"}])]]))
 
-(defn format-columns [{table-name :name table-alias :alias} columns]
-  (clojure.string/join ", " (map (fn [{:keys [name alias]}]
-                                   (str
-                                     (if table-alias table-alias table-name) "." name
-                                     (when alias (str " AS " alias))))
-                                 columns)))
+(def modifier (gen/frequency [[1 (gen/return "DISTINCT")] [9 (gen/return nil)]]))
+
+(defn format-columns [{table-name :name table-alias :alias} modifier columns]
+  (str
+    (when modifier (str modifier " "))
+    (clojure.string/join ", " (map (fn [{:keys [name alias]}]
+                                     (str
+                                       (if table-alias table-alias table-name) "." name
+                                       (when alias (str " AS " alias))))
+                                   columns))))
 
 (defn format-table [{:keys [name alias]}]
   (if alias
     (str name " AS " alias)
     name))
 
-(def sql (gen/fmap (fn [[table columns]]
-                     (format "SELECT %s FROM %s" (format-columns table columns) (format-table table)))
-                   (gen/tuple aliasable columns)))
+(def sql (gen/fmap (fn [[table modifier columns]]
+                     (format "SELECT %s FROM %s" (format-columns table modifier columns) (format-table table)))
+                   (gen/tuple aliasable modifier columns)))

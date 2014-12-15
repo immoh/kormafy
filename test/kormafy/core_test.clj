@@ -36,7 +36,10 @@
            (sql->korma "select bar as b from foo"))))
   (testing "table alias"
     (is (= '(select [:foo :f] (fields :f.a))
-           (sql->korma "select f.a from foo as f")))))
+           (sql->korma "select f.a from foo as f"))))
+  (testing "distinct"
+    (is (= '(select :foo (fields :a) (modifier "distinct"))
+           (sql->korma "select distinct a from foo")))))
 
 (defspec generated-dsl-generates-same-sql 1000
   (prop/for-all [sql gen/sql]
