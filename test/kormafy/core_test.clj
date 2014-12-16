@@ -39,7 +39,10 @@
            (sql->korma "select f.a from foo as f"))))
   (testing "distinct"
     (is (= '(select :foo (fields :a) (modifier "distinct"))
-           (sql->korma "select distinct a from foo")))))
+           (sql->korma "select distinct a from foo"))))
+  (testing "order by"
+    (is (= '(select :foo (fields :*) (order :a :ASC) (order :b :DESC))
+           (sql->korma "select * from foo order by a, b desc")))))
 
 (defspec generated-dsl-generates-same-sql 1000
   (prop/for-all [sql gen/sql]
