@@ -2,22 +2,22 @@
   (:require [clojure.string]
             [instaparse.core :as insta]))
 
-(def sql-parser (insta/parser "<sql>           = select <whitespace> from [<whitespace> order-by]
-                               whitespace      = #'\\s+'
-                               separator       = <whitespace>? <','> <whitespace>?
-                               select          = <'select'> <whitespace> [modifier <whitespace>] columns
-                               modifier        = #'(?i)distinct'
-                               <columns>       = column (<separator> column)*
-                               column          = column-name [alias]
-                               <column-name>   = [identifier <'.'>] (identifier | '*')
-                               alias           = <whitespace> <'as'> <whitespace> identifier
-                               from            = <'from'> <whitespace> table
-                               table           = identifier [alias]
-                               <identifier>    = #'[A-Za-z][A-Za-z0-9]*'
-                               order-by        = <'order by'> <whitespace> order-columns
-                               <order-columns> = order-column (<separator> order-column)*
-                               order-column    = column-name [<whitespace> order-dir]
-                               order-dir       = 'ASC' | 'DESC'"
+(def sql-parser (insta/parser "<sql>            = select <whitespace> from [<whitespace> order-by]
+                               whitespace       = #'\\s+'
+                               separator        = <whitespace>? <','> <whitespace>?
+                               select           = <'select'> <whitespace> [modifier <whitespace>] select-columns
+                               modifier         = #'(?i)distinct'
+                               <select-columns> = select-column (<separator> select-column)*
+                               select-column    = (column [alias]) | (identifier <'.'> '*') | '*'
+                               <column>         = [identifier <'.'>] identifier
+                               alias            = <whitespace> <'as'> <whitespace> identifier
+                               from             = <'from'> <whitespace> table
+                               table            = identifier [alias]
+                               <identifier>     = #'[A-Za-z][A-Za-z0-9]*'
+                               order-by         = <'order by'> <whitespace> order-columns
+                               <order-columns>  = order-column (<separator> order-column)*
+                               order-column     = column [<whitespace> order-dir]
+                               order-dir        = 'ASC' | 'DESC'"
                               :string-ci true))
 
 (defn- sql-map->korma [{:keys [from fields modifier order-by]}]
@@ -52,7 +52,7 @@
 (defmethod transform-sql-node :table [[_ & parts]]
   (aliasable parts))
 
-(defmethod transform-sql-node :column [[_ & parts]]
+(defmethod transform-sql-node :select-column [[_ & parts]]
   (aliasable parts))
 
 (defmethod transform-sql-node :order-by [[_ & columns]]
