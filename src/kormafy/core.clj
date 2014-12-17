@@ -2,7 +2,7 @@
   (:require [clojure.string]
             [instaparse.core :as insta]))
 
-(def sql-parser (insta/parser "<sql>            = select <whitespace> from [<whitespace> order-by]
+(def sql-parser (insta/parser "<sql>            = select <whitespace> from [<whitespace> order-by] [<whitespace> limit]
                                whitespace       = #'\\s+'
                                separator        = <whitespace>? <','> <whitespace>?
                                select           = <'select'> <whitespace> [modifier <whitespace>] select-columns
@@ -17,13 +17,16 @@
                                order-by         = <'order by'> <whitespace> order-columns
                                <order-columns>  = order-column (<separator> order-column)*
                                order-column     = column [<whitespace> order-dir]
-                               order-dir        = 'ASC' | 'DESC'"
+                               order-dir        = 'ASC' | 'DESC'
+                               limit            = <'limit'> <whitespace> number
+                               <number>         = #'[0-9]+'"
                               :string-ci true))
 
-(defn- sql-map->korma [{:keys [from fields modifier order-by]}]
+(defn- sql-map->korma [{:keys [from fields modifier order-by limit]}]
   (list* 'select from (filter identity (concat [(list* 'fields fields)
                                                 (when modifier (list 'modifier modifier))]
-                                               (when order-by (map (partial list* 'order) order-by))))))
+                                               (when order-by (map (partial list* 'order) order-by))
+                                               [(when limit (list 'limit limit))]))))
 
 (defn- parse-tag [tag v]
   (when (vector? v)
@@ -63,6 +66,9 @@
         parts (if dir (butlast parts) parts)]
     [(keyword (clojure.string/join "." parts))
      (or (keyword dir) :ASC)]))
+
+(defmethod transform-sql-node :limit [[_ n]]
+  {:limit (Integer/parseInt n)})
 
 (defn sql->korma [sql-string]
   (let [parsed (sql-parser sql-string)]

@@ -12,7 +12,9 @@
 
 (def modifier (gen/frequency [[1 (gen/return "DISTINCT")] [9 (gen/return nil)]]))
 
-(def order-by (gen/vector (gen/tuple identifier (gen/elements ["ASC" "DESC"]))) )
+(def order-by (gen/vector (gen/tuple identifier (gen/elements ["ASC" "DESC"]))))
+
+(def limit (gen/one-of [gen/pos-int (gen/return nil)]))
 
 (defn format-columns [{table-name :name table-alias :alias} modifier columns]
   (str
@@ -31,8 +33,9 @@
 (defn format-order-by [{:keys [name alias]} order-by-columns]
   (clojure.string/join ", " (map (fn [[column dir]] (format "%s.%s %s" (or alias name) column dir)) order-by-columns)))
 
-(def sql (gen/fmap (fn [[table modifier columns order-by]]
+(def sql (gen/fmap (fn [[table modifier columns order-by limit]]
                      (str
                        (format "SELECT %s FROM %s" (format-columns table modifier columns) (format-table table))
-                       (when (seq order-by) (str " ORDER BY " (format-order-by table order-by)))))
-                   (gen/tuple aliasable modifier columns order-by)))
+                       (when (seq order-by) (str " ORDER BY " (format-order-by table order-by)))
+                       (when limit (str " LIMIT " limit))))
+                   (gen/tuple aliasable modifier columns order-by limit)))

@@ -42,7 +42,10 @@
            (sql->korma "select distinct a from foo"))))
   (testing "order by"
     (is (= '(select :foo (fields :*) (order :a :ASC) (order :b :DESC))
-           (sql->korma "select * from foo order by a, b desc")))))
+           (sql->korma "select * from foo order by a, b desc"))))
+  (testing "limit"
+    (is (= '(select :foo (fields :*) (limit 100))
+           (sql->korma "select * from foo limit 100")))))
 
 (defspec generated-dsl-generates-same-sql 100
   (prop/for-all [sql gen/sql]
