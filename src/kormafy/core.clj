@@ -4,9 +4,10 @@
 
 (def sql-parser (insta/parser "<sql>           = select <whitespace> from [<whitespace> order-by]
                                whitespace      = #'\\s+'
+                               separator       = <whitespace>? <','> <whitespace>?
                                select          = <'select'> <whitespace> [modifier <whitespace>] columns
                                modifier        = #'(?i)distinct'
-                               <columns>       = column (<whitespace>? <','> <whitespace>? column)*
+                               <columns>       = column (<separator> column)*
                                column          = column-name [alias]
                                <column-name>   = [identifier <'.'>] (identifier | '*')
                                alias           = <whitespace> <'as'> <whitespace> identifier
@@ -14,7 +15,7 @@
                                table           = identifier [alias]
                                <identifier>    = #'[A-Za-z][A-Za-z0-9]*'
                                order-by        = <'order by'> <whitespace> order-columns
-                               <order-columns> = order-column (<whitespace>? <','> <whitespace>? order-column)*
+                               <order-columns> = order-column (<separator> order-column)*
                                order-column    = column-name [<whitespace> order-dir]
                                order-dir       = 'ASC' | 'DESC'"
                               :string-ci true))
