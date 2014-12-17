@@ -14,7 +14,7 @@
 
 (def order-by (gen/vector (gen/tuple identifier (gen/elements ["ASC" "DESC"]))))
 
-(def limit (gen/one-of [gen/pos-int (gen/return nil)]))
+(def nil-or-pos-int (gen/one-of [gen/pos-int (gen/return nil)]))
 
 (defn format-columns [{table-name :name table-alias :alias} modifier columns]
   (str
@@ -33,9 +33,10 @@
 (defn format-order-by [{:keys [name alias]} order-by-columns]
   (clojure.string/join ", " (map (fn [[column dir]] (format "%s.%s %s" (or alias name) column dir)) order-by-columns)))
 
-(def sql (gen/fmap (fn [[table modifier columns order-by limit]]
+(def sql (gen/fmap (fn [[table modifier columns order-by limit offset]]
                      (str
                        (format "SELECT %s FROM %s" (format-columns table modifier columns) (format-table table))
                        (when (seq order-by) (str " ORDER BY " (format-order-by table order-by)))
-                       (when limit (str " LIMIT " limit))))
-                   (gen/tuple aliasable modifier columns order-by limit)))
+                       (when limit (str " LIMIT " limit))
+                       (when offset (str " OFFSET " offset))))
+                   (gen/tuple aliasable modifier columns order-by nil-or-pos-int)))

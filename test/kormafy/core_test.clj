@@ -45,7 +45,10 @@
            (sql->korma "select * from foo order by a, b desc"))))
   (testing "limit"
     (is (= '(select :foo (fields :*) (limit 100))
-           (sql->korma "select * from foo limit 100")))))
+           (sql->korma "select * from foo limit 100"))))
+  (testing "offset"
+    (is (= '(select :foo (fields :*) (offset 10))
+           (sql->korma "select * from foo offset 10")))))
 
 (defspec generated-dsl-generates-same-sql 100
   (prop/for-all [sql gen/sql]
