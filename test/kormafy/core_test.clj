@@ -48,9 +48,12 @@
            (sql->korma "select * from foo limit 100"))))
   (testing "offset"
     (is (= '(select :foo (fields :*) (offset 10))
-           (sql->korma "select * from foo offset 10")))))
+           (sql->korma "select * from foo offset 10"))))
+  (testing "sql functions"
+    (is (= '(select :foo (fields (sqlfn now) [(sqlfn avg :x) :average]))
+           (sql->korma "select now(), avg(x) as average from foo")))))
 
-(defspec generated-dsl-generates-same-sql 100
+(defspec generated-dsl-generates-same-sql 50
   (prop/for-all [sql gen/sql]
     (= sql
        (sql-only (eval (sql->korma sql))))))

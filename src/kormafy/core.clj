@@ -9,23 +9,26 @@
                                                   [<whitespace> offset]
                                whitespace       = #'\\s+'
                                separator        = <whitespace>? <','> <whitespace>?
-                               select           = <'select'> <whitespace> [modifier <whitespace>] select-columns
+                               select           = <'select'> <whitespace> [modifier <whitespace>] select-fields
                                modifier         = #'(?i)distinct'
-                               <select-columns> = select-column (<separator> select-column)*
-                               select-column    = (column [alias]) | (identifier <'.'> '*') | '*'
-                               <column>         = [identifier <'.'>] identifier
+                               <select-fields>  = select-field (<separator> select-field)*
+                               select-field     = (column [alias]) | (function [alias]) | all-columns
+                               all-columns      = (identifier <'.'> <'*'>) | <'*'>
+                               column           = [identifier <'.'>] identifier
                                alias            = <whitespace> <'as'> <whitespace> identifier
+                               select-function  = function [alias]
+                               function         = identifier <'('> function-arg? (<separator> function-arg)* <')'>
+                               <function-arg>   = column | function | all-columns
                                from             = <'from'> <whitespace> table
                                table            = identifier [alias]
                                <identifier>     = #'[A-Za-z][A-Za-z0-9]*'
                                order-by         = <'order by'> <whitespace> order-columns
                                <order-columns>  = order-column (<separator> order-column)*
                                order-column     = column [<whitespace> order-dir]
-                               order-dir        = 'ASC' | 'DESC'
+                               <order-dir>      = 'ASC' | 'DESC'
                                limit            = <'limit'> <whitespace> number
                                offset           = <'offset'> <whitespace> number
                                <number>         = #'[0-9]+'"
-
                               :string-ci true))
 
 (defn- sql-map->korma [{:keys [from fields modifier order-by limit offset]}]
@@ -52,27 +55,33 @@
 (defmethod transform-sql-node :from [[_ table]]
   {:from (transform-sql-node table)})
 
-(defn- aliasable [parts]
-  (let [alias (keyword (parse-tag :alias (last parts)))
-        field (keyword (clojure.string/join "." (if alias (butlast parts) parts)))]
-    (if alias
-      [field alias]
-      field)))
+(defmethod transform-sql-node :table [[_ name alias]]
+  (if alias
+    [(keyword name) (transform-sql-node alias)]
+    (keyword name)))
 
-(defmethod transform-sql-node :table [[_ & parts]]
-  (aliasable parts))
+(defmethod transform-sql-node :select-field [[_ field alias]]
+  (if alias
+    [(transform-sql-node field) (transform-sql-node alias)]
+    (transform-sql-node field)))
 
-(defmethod transform-sql-node :select-column [[_ & parts]]
-  (aliasable parts))
+(defmethod transform-sql-node :column [[_ & parts]]
+  (keyword (clojure.string/join "." parts)))
+
+(defmethod transform-sql-node :alias [[_ alias]]
+  (keyword alias))
+
+(defmethod transform-sql-node :function [[_ name & args]]
+  (list* 'sqlfn (symbol name) (map transform-sql-node args)))
+
+(defmethod transform-sql-node :all-columns [[_ & parts]]
+  (keyword (clojure.string/join "." (concat parts ["*"]))))
 
 (defmethod transform-sql-node :order-by [[_ & columns]]
   {:order-by (map transform-sql-node columns)})
 
-(defmethod transform-sql-node :order-column [[_ & parts]]
-  (let [dir (parse-tag :order-dir (last parts))
-        parts (if dir (butlast parts) parts)]
-    [(keyword (clojure.string/join "." parts))
-     (or (keyword dir) :ASC)]))
+(defmethod transform-sql-node :order-column [[_ column dir]]
+  [(transform-sql-node column) (or (keyword dir) :ASC)])
 
 (defmethod transform-sql-node :limit [[_ n]]
   {:limit (Integer/parseInt n)})

@@ -9,15 +9,21 @@
   (gen/fmap (partial str prefix ".") identifier))
 
 (defn aliasable
-  ([] (aliasable nil))
-  ([prefix]
+  ([g] (aliasable nil g))
+  ([prefix g]
     (gen/fmap (fn [[name alias]]
                 {:name (if prefix (str prefix "." name) name)
                  :alias alias})
-              (gen/tuple identifier (gen/frequency [[1 (gen/return nil)] [1 identifier]])))))
+              (gen/tuple g (gen/frequency [[1 (gen/return nil)] [1 identifier]])))))
+
+(defn function [table]
+  (gen/fmap (fn [[fn-name args]]
+              (format "%s(%s)" (clojure.string/upper-case fn-name) (clojure.string/join ", " args)))
+            (gen/tuple identifier (gen/vector (prefixed-identifier table)))))
 
 (defn columns [table]
-  (gen/frequency [[9 (gen/not-empty (gen/vector (aliasable table)))] [1 (gen/return [{:name (str table ".*")}])]]))
+  (gen/frequency [[9 (gen/not-empty (gen/vector (gen/one-of [(aliasable table identifier) (aliasable (function table))])))]
+                  [1 (gen/return [{:name (str table ".*")}])]]))
 
 (def modifier (gen/frequency [[1 (gen/return "DISTINCT")] [9 (gen/return nil)]]))
 
@@ -25,6 +31,7 @@
   (gen/vector (gen/tuple (prefixed-identifier table) (gen/elements ["ASC" "DESC"]))))
 
 (def nil-or-pos-int (gen/one-of [gen/pos-int (gen/return nil)]))
+
 
 (defn format-columns [modifier columns]
   (str
@@ -49,7 +56,7 @@
                        (when (seq order-by) (str " ORDER BY " (format-order-by order-by)))
                        (when limit (str " LIMIT " limit))
                        (when offset (str " OFFSET " offset))))
-                   (gen/bind (aliasable)
+                   (gen/bind (aliasable identifier)
                              (fn [{:keys [name alias] :as table}]
                                (let [prefix (or alias name)]
                                  (gen/tuple (gen/return table) modifier (columns prefix) (order-by prefix) nil-or-pos-int nil-or-pos-int))))))
