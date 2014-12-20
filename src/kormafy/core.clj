@@ -4,6 +4,7 @@
 
 (def sql-parser (insta/parser "<sql>            = select <whitespace>
                                                   from
+                                                  [<whitespace> group-by]
                                                   [<whitespace> order-by]
                                                   [<whitespace> limit]
                                                   [<whitespace> offset]
@@ -28,12 +29,14 @@
                                <order-dir>      = 'ASC' | 'DESC'
                                limit            = <'limit'> <whitespace> number
                                offset           = <'offset'> <whitespace> number
-                               <number>         = #'[0-9]+'"
+                               <number>         = #'[0-9]+'
+                               group-by         = <'group by'> <whitespace> column (<separator> column)*"
                               :string-ci true))
 
-(defn- sql-map->korma [{:keys [from fields modifier order-by limit offset]}]
+(defn- sql-map->korma [{:keys [from fields modifier group-by order-by limit offset]}]
   (list* 'select from (filter identity (concat [(list* 'fields fields)
-                                                (when modifier (list 'modifier modifier))]
+                                                (when modifier (list 'modifier modifier))
+                                                (when group-by (list* 'group group-by))]
                                                (when order-by (map (partial list* 'order) order-by))
                                                [(when limit (list 'limit limit))
                                                 (when offset (list 'offset offset))]))))
@@ -88,6 +91,9 @@
 
 (defmethod transform-sql-node :offset [[_ n]]
   {:offset (Integer/parseInt n)})
+
+(defmethod transform-sql-node :group-by [[_ & columns]]
+  {:group-by (map transform-sql-node columns)})
 
 (defn sql->korma [sql-string]
   (let [parsed (sql-parser sql-string)]

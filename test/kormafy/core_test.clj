@@ -51,7 +51,10 @@
            (sql->korma "select * from foo offset 10"))))
   (testing "sql functions"
     (is (= '(select :foo (fields (sqlfn now) [(sqlfn avg :x) :average]))
-           (sql->korma "select now(), avg(x) as average from foo")))))
+           (sql->korma "select now(), avg(x) as average from foo"))))
+  (testing "group by"
+    (is (= '(select :foo (fields :a :b (sqlfn count :c)) (group :a :b))
+           (sql->korma "select a, b, count(c) from foo group by a, b")))))
 
 (defspec generated-dsl-generates-same-sql 50
   (prop/for-all [sql gen/sql]

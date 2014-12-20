@@ -1,4 +1,5 @@
 (ns kormafy.generators
+  (:refer-clojure :exclude [group-by])
   (:require [clojure.string]
             [clojure.test.check.generators :as gen]))
 
@@ -30,6 +31,9 @@
 (defn order-by [table]
   (gen/vector (gen/tuple (prefixed-identifier table) (gen/elements ["ASC" "DESC"]))))
 
+(defn group-by [table]
+  (gen/vector (prefixed-identifier table)))
+
 (def nil-or-pos-int (gen/one-of [gen/pos-int (gen/return nil)]))
 
 
@@ -50,13 +54,14 @@
 (defn format-order-by [order-by-columns]
   (clojure.string/join ", " (map (fn [[column dir]] (format "%s %s" column dir)) order-by-columns)))
 
-(def sql (gen/fmap (fn [[table modifier columns order-by limit offset]]
+(def sql (gen/fmap (fn [[table modifier columns group-by order-by limit offset]]
                      (str
                        (format "SELECT %s FROM %s" (format-columns modifier columns) (format-table table))
+                       (when (seq group-by) (str " GROUP BY " (clojure.string/join ", " group-by)))
                        (when (seq order-by) (str " ORDER BY " (format-order-by order-by)))
                        (when limit (str " LIMIT " limit))
                        (when offset (str " OFFSET " offset))))
                    (gen/bind (aliasable identifier)
                              (fn [{:keys [name alias] :as table}]
                                (let [prefix (or alias name)]
-                                 (gen/tuple (gen/return table) modifier (columns prefix) (order-by prefix) nil-or-pos-int nil-or-pos-int))))))
+                                 (gen/tuple (gen/return table) modifier (columns prefix) (group-by prefix) (order-by prefix) nil-or-pos-int nil-or-pos-int))))))
