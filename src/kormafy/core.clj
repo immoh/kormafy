@@ -4,6 +4,7 @@
 
 (def sql-parser (insta/parser "<sql>            = select <whitespace>
                                                   from
+                                                  [<whitespace> where]
                                                   [<whitespace> group-by]
                                                   [<whitespace> order-by]
                                                   [<whitespace> limit]
@@ -30,12 +31,17 @@
                                limit            = <'limit'> <whitespace> number
                                offset           = <'offset'> <whitespace> number
                                <number>         = #'[0-9]+'
-                               group-by         = <'group by'> <whitespace> column (<separator> column)*"
+                               group-by         = <'group by'> <whitespace> column (<separator> column)*
+                               where            = <'where'> <whitespace> condition
+                               condition        = column <whitespace> operator <whitespace> value
+                               operator         = '='
+                               value            = '?'"
                               :string-ci true))
 
-(defn- sql-map->korma [{:keys [from fields modifier group-by order-by limit offset]}]
+(defn- sql-map->korma [{:keys [from fields modifier where group-by order-by limit offset]}]
   (list* 'select from (filter identity (concat [(list* 'fields fields)
                                                 (when modifier (list 'modifier modifier))
+                                                (when where (list 'where where))
                                                 (when group-by (list* 'group group-by))]
                                                (when order-by (map (partial list* 'order) order-by))
                                                [(when limit (list 'limit limit))
@@ -94,6 +100,20 @@
 
 (defmethod transform-sql-node :group-by [[_ & columns]]
   {:group-by (map transform-sql-node columns)})
+
+(defmethod transform-sql-node :where [[_ condition]]
+  {:where (transform-sql-node condition)})
+
+(defmethod transform-sql-node :condition [[_ x op y]]
+  (list* (map transform-sql-node [op x y])))
+
+(def ^:private op->clj {"=" '=})
+
+(defmethod transform-sql-node :operator [[_ op]]
+  (op->clj op))
+
+(defmethod transform-sql-node :value [_]
+  "?")
 
 (defn sql->korma [sql-string]
   (let [parsed (sql-parser sql-string)]

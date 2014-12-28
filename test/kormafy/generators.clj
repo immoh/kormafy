@@ -36,6 +36,9 @@
 
 (def nil-or-pos-int (gen/one-of [gen/pos-int (gen/return nil)]))
 
+(defn where [table]
+  (gen/frequency [[1 (gen/return nil)] [9 (prefixed-identifier table)]]))
+
 
 (defn format-columns [modifier columns]
   (str
@@ -54,9 +57,10 @@
 (defn format-order-by [order-by-columns]
   (clojure.string/join ", " (map (fn [[column dir]] (format "%s %s" column dir)) order-by-columns)))
 
-(def sql (gen/fmap (fn [[table modifier columns group-by order-by limit offset]]
+(def sql (gen/fmap (fn [[table modifier columns where group-by order-by limit offset]]
                      (str
                        (format "SELECT %s FROM %s" (format-columns modifier columns) (format-table table))
+                       (when where (str " WHERE " where " = ?"))
                        (when (seq group-by) (str " GROUP BY " (clojure.string/join ", " group-by)))
                        (when (seq order-by) (str " ORDER BY " (format-order-by order-by)))
                        (when limit (str " LIMIT " limit))
@@ -64,4 +68,4 @@
                    (gen/bind (aliasable identifier)
                              (fn [{:keys [name alias] :as table}]
                                (let [prefix (or alias name)]
-                                 (gen/tuple (gen/return table) modifier (columns prefix) (group-by prefix) (order-by prefix) nil-or-pos-int nil-or-pos-int))))))
+                                 (gen/tuple (gen/return table) modifier (columns prefix) (where prefix) (group-by prefix) (order-by prefix) nil-or-pos-int nil-or-pos-int))))))
