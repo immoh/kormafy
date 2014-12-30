@@ -28,14 +28,17 @@
                                <order-columns>  = order-column (<separator> order-column)*
                                order-column     = column [<whitespace> order-dir]
                                <order-dir>      = 'ASC' | 'DESC'
-                               limit            = <'limit'> <whitespace> number
-                               offset           = <'offset'> <whitespace> number
-                               <number>         = #'[0-9]+'
+                               limit            = <'limit'> <whitespace> integer
+                               offset           = <'offset'> <whitespace> integer
+                               <integer>        = #'[0-9]+'
+                               <number>         = #'[0-9]+(\\.[0-9]+)?'
+                               <string>         = #'\\'.*\\'' | #'\\\".*\\\"'
+                               <boolean>        = 'true' | 'false'
                                group-by         = <'group by'> <whitespace> column (<separator> column)*
                                where            = <'where'> <whitespace> condition
                                condition        = column <whitespace> operator <whitespace> value
                                operator         = '='
-                               value            = '?'"
+                               value            = '?' | number | string | boolean"
                               :string-ci true))
 
 (defn- sql-map->korma [{:keys [from fields modifier where group-by order-by limit offset]}]
@@ -112,8 +115,10 @@
 (defmethod transform-sql-node :operator [[_ op]]
   (op->clj op))
 
-(defmethod transform-sql-node :value [_]
-  "?")
+(defmethod transform-sql-node :value [[_ v]]
+  (if (= v "?")
+    "?"
+    (read-string (clojure.string/replace v \' \"))))
 
 (defn sql->korma [sql-string]
   (let [parsed (sql-parser sql-string)]

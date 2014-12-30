@@ -57,7 +57,28 @@
            (sql->korma "select a, b, count(c) from foo group by a, b"))))
   (testing "where (column = ?)"
     (is (= '(select :foo (fields :*) (where (= :id "?")))
-           (sql->korma "select * from foo where id = ?")))))
+           (sql->korma "select * from foo where id = ?"))))
+  (testing "where (column = literal value"
+    (are [korma-dsl sql-str] (= korma-dsl (sql->korma sql-str))
+      '(select :foo (fields :*) (where (= :id 1)))
+      "select * from foo where id = 1"
+
+      '(select :foo (fields :*) (where (= :id "id-1")))
+      "select * from foo where id = \"id-1\""
+
+      '(select :foo (fields :*) (where (= :id "id-1")))
+      "select * from foo where id = 'id-1'"
+
+      '(select :foo (fields :*) (where (= :id 3.14)))
+      "select * from foo where id = 3.14"
+
+      '(select :foo (fields :*) (where (= :id true)))
+      "select * from foo where id = true"
+
+      '(select :foo (fields :*) (where (= :id false)))
+      "select * from foo where id = false"
+
+      )))
 
 (defspec generated-dsl-generates-same-sql 50
   (prop/for-all [sql gen/sql]
